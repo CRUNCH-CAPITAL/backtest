@@ -72,8 +72,9 @@ class QuantStatsExporter(Exporter):
             self.rows,
             columns=["date", value_column_name]
         ).set_index("date")
-
-        self.dataframe.to_csv('temp_qs.csv')
+        
+        # TODO: remove after debuging.
+        # self.dataframe.to_csv('temp_qs.csv')
         if not len(self.dataframe):
             print(
                 "[warning] cannot create tearsheet: dataframe is empty",
@@ -97,7 +98,7 @@ class QuantStatsExporter(Exporter):
             format="%Y-%m-%d"
         )
         # TODO: remove after debuging.
-        history_df.to_csv('history_df.csv')
+        # history_df.to_csv('history_df.csv')
         
         if self.benchmark_ticker:
             bench = quantstats.utils.download_returns(self.benchmark_ticker)
