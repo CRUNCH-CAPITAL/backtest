@@ -110,7 +110,7 @@ class _Pod:
                     print(f"[warning] order not placed: {symbol} @ {percent}%", file=sys.stderr)
                     number_of_orders_not_executed += 1
             else:
-                print(f"[warning] cannot place order: {symbol} @ {percent}%: no price available", file=sys.stderr)
+                print(f"[warning] cannot place order: {symbol} @ {order.quantity}{'%' if self.quantity_in_decimal else 'x'}: no price available", file=sys.stderr)
                 number_of_orders_not_executed += 1
 
         print(f"***** new_positions_in_account = {new_positions_in_account} *****")
