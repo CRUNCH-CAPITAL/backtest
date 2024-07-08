@@ -23,6 +23,9 @@ class OrderTest(unittest.TestCase):
     def test_valid(self):
         order = bktest.Order(None, 15, 2)
         self.assertFalse(order.valid)
+        
+        order = bktest.Order(0, 15, 2)
+        self.assertFalse(order.valid)
 
         order = bktest.Order("", 15, 2)
         self.assertFalse(order.valid)
@@ -40,4 +43,7 @@ class OrderTest(unittest.TestCase):
         self.assertTrue(order.valid)
 
         order = bktest.Order("AAPL", -15, 5)
+        self.assertTrue(order.valid)
+
+        order = bktest.Order(1234, -15, 5)
         self.assertTrue(order.valid)
