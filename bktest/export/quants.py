@@ -102,7 +102,7 @@ class QuantStatsExporter(Exporter):
             bench = quantstats.utils.download_returns(self.benchmark_ticker)
 
             bench = bench.reset_index()
-            bench = bench.rename(columns={"Date": "date", "Close": "close"})
+            bench = bench.rename(columns={"Date": "date"})
 
             bench['date'] = pandas.to_datetime(
                 bench['date'],
@@ -114,7 +114,7 @@ class QuantStatsExporter(Exporter):
             merged.set_index('date', drop=True, inplace=True)
 
             returns = merged.daily_profit_pct
-            benchmark = merged.close
+            benchmark = merged[self.benchmark_ticker]
         else:
             returns = history_df.set_index("date").daily_profit_pct
             benchmark = None
