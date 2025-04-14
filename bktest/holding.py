@@ -1,13 +1,15 @@
+import datetime
+
 from .order import Order
 
 
 class Holding:
 
-    def __init__(self, symbol: str, quantity: float, price: float, up_to_date=False) -> None:
+    def __init__(self, symbol: str, quantity: float, price: float, date=None) -> None:
         self.symbol = symbol
         self.quantity = quantity
         self.price = price
-        self.up_to_date = up_to_date
+        self.last_date_updated = date
 
     @property
     def market_price(self) -> float:
@@ -19,7 +21,6 @@ class Holding:
 
         self.quantity += order.quantity
         self.price = order.price
-        self.up_to_date = True
 
         return self
 
@@ -28,7 +29,3 @@ class Holding:
 
     def __repr__(self) -> str:
         return f"{self.symbol}x{self.quantity}"
-
-    @staticmethod
-    def from_order(order: Order) -> "Holding":
-        return Holding(order.symbol, order.quantity, order.price, True)

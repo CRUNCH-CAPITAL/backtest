@@ -6,13 +6,18 @@ from ... import constants
 
 class YahooDataSource(DataSource):
 
+    def __init__(self, field="Adj Close"):
+        super().__init__()
+
+        self.field = field
+
     def fetch_prices(self, symbols, start, end):
         prices = yfinance.download(
             tickers=symbols,
             start=start,
             end=end,
             show_errors=False
-        )["Adj Close"]
+        )[self.field]
 
         prices.index.name = constants.DEFAULT_DATE_COLUMN
 
