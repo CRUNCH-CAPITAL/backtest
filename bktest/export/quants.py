@@ -62,16 +62,19 @@ class QuantStatsExporter(Exporter):
             date = snapshot.postponned
 
         self.rows.append(
-            (date, snapshot.equity)
+            (date, snapshot.nav)
         )
 
     @abc.abstractmethod
     def finalize(self) -> None:
+        value_column_name = "nav"
         self.dataframe = pandas.DataFrame(
             self.rows,
-            columns=["date", "equity"]
+            columns=["date", value_column_name]
         ).set_index("date")
-
+        
+        # TODO: remove after debuging.
+        # self.dataframe.to_csv('temp_qs.csv')
         if not len(self.dataframe):
             print(
                 "[warning] cannot create tearsheet: dataframe is empty",
@@ -82,13 +85,10 @@ class QuantStatsExporter(Exporter):
 
         history_df = self.dataframe.copy()
 
-        history_df['profit'] = history_df['equity'] - \
-            history_df['equity'].shift(1)
+        history_df['profit'] = history_df[value_column_name] - \
+            history_df[value_column_name].shift(1)
         history_df['daily_profit_pct'] = history_df["profit"] / \
-            history_df["equity"].shift(1)
-
-        # history_df['profit'].fillna(0, inplace=True)
-        # history_df['daily_profit_pct'].fillna(0, inplace=True)
+            history_df[value_column_name].shift(1)
 
         history_df.reset_index(inplace=True)
 
@@ -97,7 +97,9 @@ class QuantStatsExporter(Exporter):
             history_df['date'],
             format="%Y-%m-%d"
         )
-
+        # TODO: remove after debuging.
+        # history_df.to_csv('history_df.csv')
+        
         if self.benchmark_ticker:
             bench = quantstats.utils.download_returns(self.benchmark_ticker)
 

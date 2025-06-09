@@ -68,16 +68,26 @@ class SymbolMapper:
         return mapper
 
 
+EPSILON = 1e-6
+
 class PriceProvider:
 
-    def __init__(self, start: datetime.date, end: datetime.date, data_source: DataSource, mapper: SymbolMapper, caching=True):
+    def __init__(self, start: datetime.date, end: datetime.date, data_source: DataSource, mapper: SymbolMapper, caching=True, work_with_prices=True):
         self.start = start
         self.end = end
         self.data_source = data_source
         self.mapper = mapper if mapper is not None else SymbolMapper.empty()
         self.caching = caching
 
+        if work_with_prices and not self.data_source.data_source_contains_prices_not_returns:
+            print('warning work_with_prices is true but there are no prices')
+            print('setting work_with_prices to False')
+            work_with_prices = False
+
+        self.work_with_prices = work_with_prices
+
         self.storage = PriceProvider._create_storage(start, end, caching)
+        self.total_returns = PriceProvider._create_storage(start, end, caching, name='returns')
         self.symbols = PriceProvider._create_symbols_set(self.storage)
 
         self.updated = False
@@ -94,7 +104,7 @@ class PriceProvider:
 
             prices = self.data_source.fetch_prices(
                 symbols=self.mapper.maps(missing_symbols),
-                start=self.start - one_day,
+                start=self.start - one_day,  # Not enough since day before is not necessarily a trading day... or it's ok... because first day is the base?
                 end=self.end + one_day
             )
 
@@ -124,9 +134,25 @@ class PriceProvider:
                         ))
 
             prices.columns = self.mapper.unmaps(prices.columns)
+
             for column in prices.columns:
                 if prices[column].isna().values.all():
                     print(f"[warning] {column} does not have a price", file=sys.stderr)
+
+            if self.data_source.data_source_contains_prices_not_returns:
+                total_returns = prices / prices.shift(1) - 1
+                shift = 1
+            else:
+                total_returns = prices.copy()
+                shift = 0
+
+            # If return for a specific stock exists, there was a price/trading in that day and since we work with returns the price is set to one else it is NaN.
+            if not self.work_with_prices:
+                abs = prices.abs()
+                # TODO: enzo: check if this could works and give the same result `prices.loc[~prices.isna()] = 1`
+                prices = (abs + EPSILON) / (abs + EPSILON)
+
+                assert (prices[shift:].isna() == total_returns[shift:].isna()).all().all(), "nans are not matching between prices and total_returns"
 
             if self.storage is not None:
                 with warnings.catch_warnings():
@@ -140,6 +166,19 @@ class PriceProvider:
                     )
             else:
                 self.storage = prices
+
+            if self.total_returns is not None:
+                with warnings.catch_warnings():
+                    warnings.simplefilter(action='ignore', category=pandas.errors.PerformanceWarning)
+
+                    self.total_returns = pandas.merge(
+                        self.total_returns,
+                        total_returns,
+                        on=constants.DEFAULT_DATE_COLUMN,
+                        how="left"
+                    )
+            else:
+                self.total_returns = total_returns
 
             self.symbols.update(missing_symbols)
             self.updated = True
@@ -156,6 +195,18 @@ class PriceProvider:
 
         return value
 
+    def get_total_return(self, date: datetime.date, symbol: str):
+        if symbol not in self.symbols:
+            raise ValueError(f"{symbol} not available")
+
+        symbol = self.mapper.map(symbol)
+
+        value = self.total_returns[symbol][numpy.datetime64(date)]
+        if numpy.isnan(value):
+            value = None
+
+        return value
+
     def save(self):
         if not self.caching or not self.updated:
             return
@@ -166,13 +217,16 @@ class PriceProvider:
 
         self.storage.to_csv(path)
 
+        path = PriceProvider._get_cache_path(self.start, self.end, name='returns')
+        self.total_returns.to_csv(path)
+
     def is_closeable(self) -> bool:
         return self.data_source.is_closeable()
 
     @staticmethod
-    def _create_storage(start: datetime.date, end: datetime.date, caching=True):
+    def _create_storage(start: datetime.date, end: datetime.date, caching=True, name='prices'):
         if caching:
-            path = PriceProvider._get_cache_path(start, end)
+            path = PriceProvider._get_cache_path(start, end, name=name)
 
             if os.path.exists(path):
                 dataframe = pandas.read_csv(path, index_col=constants.DEFAULT_DATE_COLUMN)
@@ -200,5 +254,5 @@ class PriceProvider:
         return set([symbol for symbol in storage.columns if symbol != "_"])
 
     @staticmethod
-    def _get_cache_path(start, end):
-        return f".cache/prices-s{start}-e{end}.csv"
+    def _get_cache_path(start, end, name='prices'):
+        return f".cache/{name}-s{start}-e{end}.csv"

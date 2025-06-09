@@ -41,8 +41,19 @@ class Order:
 
     @property
     def valid(self):
-        return not utils.is_blank(self.symbol) \
-            and self.price > 0
+        if self.symbol is None:
+            return False
+
+        if self.symbol == 0:
+            return False
+
+        if isinstance(self.symbol, str) and utils.is_blank(self.symbol):
+            return False
+
+        if self.price is not None and self.price <= 0:
+            return False
+
+        return True
 
 
 @dataclasses.dataclass()
@@ -164,7 +175,7 @@ class DataFrameOrderProvider(OrderProvider):
 @dataclasses.dataclass()
 class OrderResultCollection:
 
-    elements: list = dataclasses.field(default_factory=list)
+    elements: typing.List[OrderResult] = dataclasses.field(default_factory=list)
     closed_count: int = None
     closed_total: int = None
 

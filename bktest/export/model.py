@@ -12,6 +12,8 @@ class Snapshot:
     equity: float
     holdings: typing.List["Holding"]
     ordered: bool
+    equity_long: float
+    nav: float
     
     # Only when ordered
     total_fees: float = 0.0

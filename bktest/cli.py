@@ -92,6 +92,8 @@ dotenv.load_dotenv()
 @click.option('--file-parquet-column-date', type=str, default="date", show_default=True, help="Specify the column name containing the dates.")
 @click.option('--file-parquet-column-symbol', type=str, default="symbol", show_default=True, help="Specify the column name containing the symbols.")
 @click.option('--file-parquet-column-price', type=str, default="price", show_default=True, help="Specify the column name containing the prices.")
+@click.option('--work-with-returns', is_flag=True, help="Use returns instead of prices.")
+@click.option('--data-source-contains-returns-not-prices', is_flag=True, help="Define the type of data source.")
 #
 @click.pass_context
 def cli(ctx: click.Context, **kwargs):
@@ -138,7 +140,7 @@ def main(
     #
     factset: bool, factset_username_serial: str, factset_api_key: str,
     #
-    file_parquet, file_parquet_column_date, file_parquet_column_symbol, file_parquet_column_price,
+    file_parquet, file_parquet_column_date, file_parquet_column_symbol, file_parquet_column_price, work_with_returns, data_source_contains_returns_not_prices
 ):
     logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
 
@@ -208,7 +210,8 @@ def main(
             dataframe=readwrite.read(file_parquet),
             date_column=file_parquet_column_date,
             symbol_column=file_parquet_column_symbol,
-            price_column=file_parquet_column_price
+            price_column=file_parquet_column_price,
+            data_source_contains_prices_not_returns=not data_source_contains_returns_not_prices
         )
 
         if data_source is not None:
@@ -336,7 +339,8 @@ def main(
         caching=not no_caching,
         allow_weekends=weekends,
         allow_holidays=holidays,
-        holiday_provider=holiday_provider
+        holiday_provider=holiday_provider,
+        work_with_prices=not work_with_returns
     ).run()
 
 
