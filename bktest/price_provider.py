@@ -177,7 +177,6 @@ class PriceProvider:
             try:
                 one_day = datetime.timedelta(days=1)
                 execution_prices = self.data_source.fetch_execution_prices(
-                    # symbols={symbol},
                     symbols=[symbol],
                     start=date - one_day,
                     end=date + one_day
