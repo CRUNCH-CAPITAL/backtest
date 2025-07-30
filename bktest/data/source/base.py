@@ -16,6 +16,15 @@ class DataSource(metaclass=abc.ABCMeta):
     ) -> pandas.DataFrame:
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    def fetch_execution_prices(
+        self,
+        symbols: typing.Set[str],
+        start: datetime.date,
+        end: datetime.date
+    ) -> pandas.DataFrame:
+        raise NotImplementedError()
+
     def is_closeable(self) -> bool:
         """
         Return whether or not the markat has closing hours.

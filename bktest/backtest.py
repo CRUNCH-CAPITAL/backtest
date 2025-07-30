@@ -21,12 +21,14 @@ class _Pod:
         price_provider: PriceProvider,
         account: Account,
         exporters: ExporterCollection,
+        execution_prices: bool
     ):
         self.quantity_in_decimal = quantity_in_decimal
         self.auto_close_others = auto_close_others
         self.price_provider = price_provider
         self.account = account
         self.exporters = exporters
+        self.execution_prices = execution_prices
 
     def order(
         self,
@@ -54,26 +56,39 @@ class _Pod:
             for order in orders:
                 symbol = order.symbol
                 percent = order.quantity
-                price = order.price or self.price_provider.get(price_date, symbol)
+
+                if self.execution_prices:
+                    # Use execution price for order placement
+                    price = order.price or self.price_provider.get_execution_price(price_date, symbol)
+                else:
+                    # Use close price for order placement
+                    price = order.price or self.price_provider.get(price_date, symbol)
 
                 holding_cash_value = equity * percent
                 if price is not None:
                     quantity = int(holding_cash_value / price)
 
+                    # Create order with execution price
                     result = self.account.order_position(Order(symbol, quantity, price))
                     results.append(result)
 
                     if result.success:
                         others.discard(symbol)
                     else:
-                        print(f"[warning] order not placed: {symbol} @ {percent}%", file=sys.stderr)
+                        print(f"[warning] order not placed: {symbol} @ {percent}% - {date}", file=sys.stderr)
                 else:
-                    print(f"[warning] cannot place order: {symbol} @ {percent}%: no price available", file=sys.stderr)
+                    print(f"[warning] cannot place order: {symbol} @ {percent}% - {date}: no execution price available", file=sys.stderr)
         else:
             for order in orders:
                 symbol = order.symbol
                 quantity = order.quantity
-                price = order.price or self.price_provider.get(price_date, symbol)
+
+                if self.execution_prices:
+                    # Use execution price for order placement
+                    price = order.price or self.price_provider.get_execution_price(price_date, symbol)
+                else:
+                    # Use close price for order placement
+                    price = order.price or self.price_provider.get(price_date, symbol)
 
                 if price is not None:
                     result = self.account.order_position(Order(symbol, quantity, price))
@@ -82,9 +97,9 @@ class _Pod:
                     if result.success:
                         others.discard(symbol)
                     else:
-                        print(f"[warning] order not placed: {symbol} @ {percent}%", file=sys.stderr)
+                        print(f"[warning] order not placed: {symbol} @ {percent}% - {date}", file=sys.stderr)
                 else:
-                    print(f"[warning] cannot place order: {symbol} @ {quantity}x: no price available", file=sys.stderr)
+                    print(f"[warning] cannot place order: {symbol} @ {quantity}x - {date}: no execution price available", file=sys.stderr)
 
         if self.auto_close_others:
             self._close_all(others, date, results)
@@ -111,7 +126,7 @@ class _Pod:
             if result.success:
                 closed += 1
             else:
-                print(f"[warning] could not auto-close: {symbol}", file=sys.stderr)
+                print(f"[warning] could not auto-close: {symbol} - {date}", file=sys.stderr)
 
             total += 1
 
@@ -197,7 +212,7 @@ class ParallelBacktester:
                     price = cache[symbol] = self.price_provider.get(date, holding.symbol)
 
                 if price is None:
-                    print(f"[warning] price not updated: {holding.symbol}: keeping last: {holding.price}", file=sys.stderr)
+                    print(f"[warning] price not updated: {holding.symbol} - {date}: keeping last: {holding.price}", file=sys.stderr)
                     holding.up_to_date = False
                 else:
                     holding.price = price
@@ -272,6 +287,7 @@ class SimpleBacktester:
         allow_weekends=False,
         allow_holidays=False,
         holiday_provider: HolidayProvider = LegacyHolidayProvider(),
+        execution_prices: bool = False
     ):
         self.order_provider = order_provider
         order_dates = order_provider.get_dates()
@@ -284,7 +300,8 @@ class SimpleBacktester:
             auto_close_others,
             self.price_provider,
             Account(initial_cash=initial_cash, fee_model=fee_model),
-            ExporterCollection(exporters)
+            ExporterCollection(exporters),
+            execution_prices
         )
 
         self.date_iterator = DateIterator(
@@ -302,7 +319,7 @@ class SimpleBacktester:
             price = self.price_provider.get(date, holding.symbol)
 
             if price is None:
-                print(f"[warning] price not updated: {holding.symbol}: keeping last: {holding.price}", file=sys.stderr)
+                print(f"[warning] price not updated: {holding.symbol} - {date}: keeping last: {holding.price}", file=sys.stderr)
                 holding.up_to_date = False
             else:
                 holding.price = price
@@ -332,13 +349,12 @@ class SimpleBacktester:
                     result = self.order(skip.date, price_date=date)
                     self.exporters.fire_snapshot(date, self.account, result, postponned=skip.date)
 
-            self.update_price(date)
-            self.exporters.fire_snapshot(date, self.account, None)
-
             if ordered:
                 result = self.order(date)
-
                 self.exporters.fire_snapshot(date, self.account, result)
+
+            self.update_price(date)
+            self.exporters.fire_snapshot(date, self.account, None)
 
         self.price_provider.save()
 

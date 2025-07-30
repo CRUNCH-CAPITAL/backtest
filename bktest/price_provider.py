@@ -166,6 +166,30 @@ class PriceProvider:
 
         self.storage.to_csv(path)
 
+    def get_execution_price(self, date: datetime.date, symbol: str):
+        """Get execution price (e.g., open price) for a specific date and symbol"""
+        if symbol not in self.symbols:
+            raise ValueError(f"{symbol} not available")
+
+        symbol = self.mapper.map(symbol)
+        
+        if hasattr(self.data_source, 'fetch_execution_prices'):
+            try:
+                one_day = datetime.timedelta(days=1)
+                execution_prices = self.data_source.fetch_execution_prices(
+                    symbols=[symbol],
+                    start=date - one_day,
+                    end=date + one_day
+                )
+                value = execution_prices[symbol][numpy.datetime64(date)]
+                if not value or numpy.isnan(value):
+                    value = None
+                return value
+            except Exception as e:
+                return self.get(date, symbol)
+        else:
+            return self.get(date, symbol)
+
     def is_closeable(self) -> bool:
         return self.data_source.is_closeable()
 
