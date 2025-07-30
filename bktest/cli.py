@@ -92,6 +92,7 @@ dotenv.load_dotenv()
 @click.option('--file-parquet-column-date', type=str, default="date", show_default=True, help="Specify the column name containing the dates.")
 @click.option('--file-parquet-column-symbol', type=str, default="symbol", show_default=True, help="Specify the column name containing the symbols.")
 @click.option('--file-parquet-column-price', type=str, default="price", show_default=True, help="Specify the column name containing the prices.")
+@click.option('--file-parquet-column-execution-price', type=str, default=None, show_default=True, help="Specify the column name containing the execution prices (e.g., open prices).")
 #
 @click.pass_context
 def cli(ctx: click.Context, **kwargs):
@@ -138,7 +139,7 @@ def main(
     #
     factset: bool, factset_username_serial: str, factset_api_key: str,
     #
-    file_parquet, file_parquet_column_date, file_parquet_column_symbol, file_parquet_column_price,
+    file_parquet, file_parquet_column_date, file_parquet_column_symbol, file_parquet_column_price, file_parquet_column_execution_price
 ):
     logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
 
@@ -203,12 +204,19 @@ def main(
         )
 
     if file_parquet:
+        selected_columns = [file_parquet_column_date,
+                            file_parquet_column_symbol, file_parquet_column_price]
+        if file_parquet_column_execution_price is not None:
+            selected_columns.append(file_parquet_column_execution_price)
         from .data.source import DataFrameDataSource
         file_data_source = DataFrameDataSource(
-            dataframe=readwrite.read(file_parquet),
+            dataframe=readwrite.read(file_parquet, columns=selected_columns),
+            # dataframe=readwrite.read(file_parquet),
             date_column=file_parquet_column_date,
             symbol_column=file_parquet_column_symbol,
-            price_column=file_parquet_column_price
+            price_column=file_parquet_column_price,
+            execution_price_column=file_parquet_column_execution_price,
+            order_dataframe=order_provider.dataframe,
         )
 
         if data_source is not None:
@@ -336,7 +344,8 @@ def main(
         caching=not no_caching,
         allow_weekends=weekends,
         allow_holidays=holidays,
-        holiday_provider=holiday_provider
+        holiday_provider=holiday_provider,
+        execution_prices = file_parquet_column_execution_price != None
     ).run()
 
 
