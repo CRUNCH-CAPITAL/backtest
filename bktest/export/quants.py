@@ -108,6 +108,7 @@ class QuantStatsExporter(Exporter):
                 bench['date'],
                 format="%Y-%m-%d"
             ).dt.tz_localize(None)
+            bench.rename({'Close': self.benchmark_ticker}, axis=1, inplace=True)
 
             merged = history_df.merge(bench, on='date', how='inner')
 
